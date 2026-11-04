@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Tus deberes por materia, en una línea de tiempo, con recordatorios.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Mis Deberes</title>
+<style>
+:root{
+  --bg:#000; --surface:#151515; --surface2:#1f1f1f; --line:#2a2a2a;
+  --text:#f2f2f2; --muted:#9a9a9a; --dim:#6b6b6b;
+  --accent:#FFC414; --accent-ink:#1a1400;
+  --red:#ff5a4f; --orange:#ff9f3a; --green:#3ccf7a;
+  --radius:18px;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100dvh}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,select{font:inherit;color:var(--text)}
+.app{max-width:560px;margin:0 auto;padding:calc(var(--safe-t) + 8px) 18px calc(96px + var(--safe-b));}
+header.top{display:flex;align-items:center;justify-content:space-between;padding:18px 4px 6px}
+header.top h1{font-size:38px;font-weight:400;margin:0;letter-spacing:-.5px}
+header.top .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.iconbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--text)}
+.iconbtn:active{background:var(--surface2)}
+.view{display:none}
+.view.on{display:block;animation:fade .18s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ---------- Timeline ---------- */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 4px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:9px 14px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:14px;border:1px solid var(--line);white-space:nowrap}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.group{margin-top:22px}
+.group h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin:0 4px 10px;display:flex;align-items:center;gap:8px}
+.group h2 .n{background:var(--surface2);color:var(--text);border-radius:999px;padding:1px 8px;font-size:12px;letter-spacing:0}
+.group.overdue h2{color:var(--red)}
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line);border-radius:2px}
+.item{position:relative;background:var(--surface);border-radius:var(--radius);padding:14px 14px 14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:center;width:100%;text-align:left}
+.item:active{background:var(--surface2)}
+.item::before{content:"";position:absolute;left:-21px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--c,#888);box-shadow:0 0 0 3px var(--bg)}
+.item .bar{width:4px;align-self:stretch;border-radius:4px;background:var(--c,#888);flex:none}
+.item .body{flex:1;min-width:0}
+.item .mat{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .what{font-size:17px;font-weight:500;margin:2px 0 3px;line-height:1.25}
+.item .when{font-size:14px;color:var(--muted)}
+.item .when b{color:var(--text);font-weight:500}
+.badge{flex:none;font-size:12px;font-weight:700;padding:6px 9px;border-radius:10px;background:var(--surface2);color:var(--muted);text-align:center;min-width:56px}
+.badge.hot{background:rgba(255,90,79,.16);color:var(--red)}
+.badge.warm{background:rgba(255,159,58,.16);color:var(--orange)}
+.badge.ok{background:rgba(255,196,20,.12);color:var(--accent)}
+.item.done{opacity:.45}
+.item.done .what{text-decoration:line-through}
+.empty{text-align:center;padding:70px 20px;color:var(--muted)}
+.empty .ill{width:84px;height:84px;margin:0 auto 18px;border-radius:20px;background:var(--surface2);display:grid;place-items:center}
+.empty p{font-size:20px;color:#8a8a8a;margin:0 0 6px;font-weight:500}
+.empty small{font-size:14px;color:var(--dim)}
+.nextcard{margin-top:6px;background:linear-gradient(135deg,#2a2100,#151515 70%);border:1px solid #3a2f05;border-radius:22px;padding:18px}
+.nextcard .k{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:700}
+.nextcard .t{font-size:22px;margin:8px 0 4px;line-height:1.2}
+.nextcard .m{color:var(--muted);font-size:15px}
+
+/* ---------- Materias ---------- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.card{position:relative;background:var(--surface);border-radius:22px;padding:16px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;border:1px solid transparent}
+.card:active{transform:scale(.98)}
+.card .sw{width:46px;height:46px;border-radius:14px;background:var(--c);display:grid;place-items:center;color:#000;font-weight:800;font-size:18px}
+.card .name{font-size:16px;font-weight:600;line-height:1.25;margin-top:14px}
+.card .nrc{font-size:13px;color:var(--muted);margin-top:4px}
+.card .cnt{position:absolute;top:14px;right:14px;font-size:12px;font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:3px 9px}
+.card .edit{position:absolute;bottom:10px;right:8px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--dim)}
+.card.add{border:1.5px dashed #3a3a3a;background:transparent;align-items:center;justify-content:center;color:var(--muted);gap:8px}
+.hint{color:var(--muted);font-size:14px;margin:6px 4px 0}
+
+/* ---------- Ajustes ---------- */
+.sec{background:var(--surface);border-radius:22px;padding:6px 16px;margin-top:14px}
+.sec h3{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin:14px 0 6px;font-weight:700}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+.sec h3 + .row, .sec h3 + p + .row{border-top:0}
+.row .l{flex:1}
+.row .l div{font-size:16px}
+.row .l small{color:var(--muted);font-size:13px;display:block;margin-top:2px;line-height:1.35}
+.sec p{color:var(--muted);font-size:14px;line-height:1.45;margin:4px 0 12px}
+.sw-toggle{position:relative;width:50px;height:30px;flex:none}
+.sw-toggle input{opacity:0;width:0;height:0;position:absolute}
+.sw-toggle span{position:absolute;inset:0;background:#3a3a3a;border-radius:999px;transition:.2s}
+.sw-toggle span::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#ddd;transition:.2s}
+.sw-toggle input:checked + span{background:var(--accent)}
+.sw-toggle input:checked + span::after{left:23px;background:#000}
+.seg{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 14px}
+.times{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 14px}
+.times span{font-size:13px;background:var(--surface2);border-radius:8px;padding:5px 9px;color:var(--text)}
+.times span.q{color:var(--dim);text-decoration:line-through}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:14px;background:var(--surface2);font-weight:600;font-size:15px}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.4}
+.btns{display:flex;flex-direction:column;gap:8px;padding:4px 0 16px}
+.status{display:flex;align-items:center;gap:10px;font-size:15px;padding:10px 0 4px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--dim);flex:none}
+.dot.g{background:var(--green)} .dot.r{background:var(--red)} .dot.y{background:var(--accent)}
+input[type=time],input[type=date],input[type=text]{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:none;color-scheme:dark}
+input:focus{border-color:var(--accent)}
+ol.steps{margin:4px 0 14px;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.5}
+ol.steps b{color:var(--text);font-weight:500}
+
+/* ---------- FAB + Nav ---------- */
+.fab{position:fixed;right:max(22px,calc(50% - 258px));bottom:calc(92px + var(--safe-b));width:66px;height:66px;border-radius:50%;background:var(--accent);color:#000;display:grid;place-items:center;box-shadow:0 8px 24px rgba(255,196,20,.25);z-index:20}
+.fab:active{transform:scale(.94)}
+nav.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);border-top:1px solid #1d1d1d;padding:8px 0 calc(8px + var(--safe-b));z-index:30}
+nav.bottom .in{max-width:560px;margin:0 auto;display:flex}
+nav.bottom button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;color:#7a7a7a;font-size:13px;font-weight:500}
+nav.bottom button .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center}
+nav.bottom button.on{color:var(--text);font-weight:700}
+nav.bottom button.on .ic{background:var(--text);color:#000}
+
+/* ---------- Sheet (formulario) ---------- */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:#121212;border-radius:26px 26px 0 0;padding:10px 20px calc(20px + var(--safe-b));transform:translateY(105%);visibility:hidden;transition:transform .25s cubic-bezier(.2,.8,.2,1),visibility 0s .25s;z-index:50;max-height:92dvh;overflow-y:auto;border-top:1px solid #262626}
+.sheet.on{transform:none;visibility:visible;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.grab{width:42px;height:5px;border-radius:5px;background:#3a3a3a;margin:2px auto 12px}
+.sheet .head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.sheet .head .sw{width:40px;height:40px;border-radius:12px;background:var(--c);flex:none}
+.sheet .head .ttl{font-size:19px;font-weight:600;line-height:1.2}
+.sheet .head .nrc{font-size:13px;color:var(--muted)}
+.stepper{display:flex;gap:6px;margin:14px 0 4px}
+.stepper i{flex:1;height:4px;border-radius:4px;background:#2c2c2c}
+.stepper i.on{background:var(--accent)}
+.q{font-size:24px;font-weight:500;margin:18px 0 4px}
+.qsub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.big{width:100%;font-size:19px !important;padding:15px 16px !important;border-radius:16px !important}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.opts .chip{font-size:15px;padding:11px 15px}
+.sheet .actions{display:flex;gap:10px;margin-top:22px}
+.sheet .actions .btn{flex:1;padding:16px}
+.summary{background:var(--surface);border-radius:16px;padding:14px 16px;margin-top:16px;font-size:15px;line-height:1.5}
+.summary b{color:var(--accent);font-weight:600}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.pick button{background:var(--surface);border-radius:16px;padding:14px;text-align:left;display:flex;gap:10px;align-items:center}
+.pick .sw{width:30px;height:30px;border-radius:9px;background:var(--c);flex:none}
+.pick .n{font-size:14px;font-weight:600;line-height:1.2}
+.pick .r{font-size:12px;color:var(--muted)}
+.colors{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.colors button{width:36px;height:36px;border-radius:50%;background:var(--c);border:3px solid transparent}
+.colors button.on{border-color:#fff}
+.menu{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.menu .btn{justify-content:flex-start;padding:16px;font-weight:500}
+.menu .btn.danger{color:var(--red)}
+label.fld{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+.toast{position:fixed;left:50%;bottom:calc(170px + var(--safe-b));transform:translateX(-50%) translateY(20px);background:#f2f2f2;color:#000;padding:12px 18px;border-radius:14px;font-size:15px;font-weight:500;opacity:0;pointer-events:none;transition:.2s;z-index:60;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.banner{background:#1d1700;border:1px solid #3d3205;color:#f5dd8a;border-radius:16px;padding:12px 14px;font-size:14px;line-height:1.4;margin-top:12px;display:flex;gap:10px;align-items:flex-start}
+.banner button{color:var(--accent);font-weight:700;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== LÍNEA DE TIEMPO ===== -->
+  <section class="view on" id="v-timeline">
+    <header class="top">
+      <div><h1>Línea de tiempo</h1><div class="sub" id="todayLbl"></div></div>
+    </header>
+    <div id="notifBanner"></div>
+    <div id="nextCard"></div>
+    <div class="filters" id="tlFilters"></div>
+    <div id="tlList"></div>
+  </section>
+
+  <!-- ===== MATERIAS ===== -->
+  <section class="view" id="v-materias">
+    <header class="top">
+      <div><h1>Materias</h1><div class="sub">Toca una materia para agendar una tarea</div></div>
+    </header>
+    <div class="grid" id="matGrid"></div>
+  </section>
+
+  <!-- ===== AVISOS / AJUSTES ===== -->
+  <section class="view" id="v-avisos">
+    <header class="top">
+      <div><h1>Avisos</h1><div class="sub">Cuándo y cómo te recuerdo</div></div>
+    </header>
+
+    <div class="sec">
+      <h3>Notificaciones</h3>
+      <div class="status"><span class="dot" id="nDot"></span><span id="nTxt">—</span></div>
+      <div class="btns">
+        <button class="btn primary block" id="nEnable">Activar notificaciones</button>
+        <button class="btn block" id="nTest">Enviar una de prueba</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Recordatorio general</h3>
+      <p>Te aviso cuántos deberes tienes pendientes y cuál vence primero.</p>
+      <div class="seg" id="ivSeg"></div>
+      <div class="row" style="border-top:0;padding-top:0">
+        <div class="l"><div>Primer aviso del día</div><small>Los demás se reparten a partir de esta hora</small></div>
+        <input type="time" id="ivStart">
+      </div>
+      <div class="times" id="ivTimes"></div>
+      <div class="row">
+        <div class="l"><div>Horas de silencio</div><small>No avisar mientras duermes</small></div>
+        <label class="sw-toggle"><input type="checkbox" id="qOn"><span></span></label>
+      </div>
+      <div class="row" id="qRow">
+        <div class="l"><div>Desde / hasta</div></div>
+        <input type="time" id="qFrom" style="width:110px"> <input type="time" id="qTo" style="width:110px">
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Alertas antes de cada entrega</h3>
+      <div class="row"><div class="l"><div>1 día antes</div></div><label class="sw-toggle"><input type="checkbox" data-off="1440"><span></span></label></div>
+      <div class="row"><div class="l"><div>3 horas antes</div></div><label class="sw-toggle"><input type="checkbox" data-off="180"><span></span></label></div>
+      <div class="row"><div class="l"><div>1 hora antes</div></div><label class="sw-toggle"><input type="checkbox" data-off="60"><span></span></label></div>
+    </div>
+
+    <div class="sec">
+      <h3>Avisos con la app cerrada (celular)</h3>
+      <p>El celular suele dormir las apps web cuando no las usas. Para que los avisos lleguen <b style="color:var(--text)">siempre</b>, pásalos al calendario del teléfono: él sí suena aunque la app esté cerrada.</p>
+      <div class="btns">
+        <button class="btn primary block" id="icsBtn">Descargar avisos para el calendario (.ics)</button>
+        <div class="row" style="border-top:0;padding:4px 0">
+          <div class="l"><div>Incluir el recordatorio general</div><small>Agrega eventos diarios a las horas de arriba</small></div>
+          <label class="sw-toggle"><input type="checkbox" id="icsChk" checked><span></span></label>
+        </div>
+      </div>
+      <p>También puedes mandar una tarea suelta a Google Calendar: tócala en la línea de tiempo → <b style="color:var(--text)">Agregar a Google Calendar</b>.</p>
+    </div>
+
+    <div class="sec">
+      <h3>Abrir desde la esquina de la pantalla</h3>
+      <p>Instala la app y luego agrégala a la barra lateral de tu teléfono:</p>
+      <ol class="steps">
+        <li>En Chrome, menú <b>⋮</b> → <b>Agregar a pantalla principal</b> → <b>Instalar</b>.</li>
+        <li>Xiaomi / Redmi / POCO: <b>Ajustes → Funciones adicionales → Ventanas flotantes → Barra lateral</b>, actívala y añade <b>Mis Deberes</b>. Se abre deslizando desde el borde.</li>
+        <li>Samsung: <b>Ajustes → Pantalla → Paneles laterales</b> → panel de Aplicaciones → añade <b>Mis Deberes</b>.</li>
+        <li>Extra: mantén presionado el ícono para el atajo <b>Nueva tarea</b>.</li>
+      </ol>
+      <div class="btns"><button class="btn block" id="installBtn" hidden>Instalar ahora</button></div>
+    </div>
+
+    <div class="sec">
+      <h3>Respaldo</h3>
+      <p>Tus datos se guardan solo en este dispositivo. Para pasarlos del celular a la laptop, exporta aquí e importa allá.</p>
+      <div class="btns">
+        <button class="btn block" id="expBtn">Exportar respaldo</button>
+        <button class="btn block" id="impBtn">Importar respaldo</button>
+        <input type="file" id="impFile" accept=".json,application/json" hidden>
+      </div>
+    </div>
+    <p class="hint" style="text-align:center;margin:22px 0 0">Mis Deberes · hecho a tu medida</p>
+  </section>
+</div>
+
+<button class="fab" id="fab" aria-label="Nueva tarea">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<nav class="bottom"><div class="in">
+  <button data-v="timeline" class="on"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M11 6h9M11 18h9M11 12h6"/><circle cx="6" cy="12" r="1.2" fill="currentColor"/></svg></span>Línea de tiempo</button>
+  <button data-v="materias"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg></span>Materias</button>
+  <button data-v="avisos"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></span>Avisos</button>
+</div></nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+/* ============================================================
+   Datos
+   ============================================================ */
+const KEY = "misdeberes.v1";
+const COLORS = ["#FFC414","#4FA3FF","#3CCF7A","#FF7A59","#B88CFF","#2ED3C6","#FF5FA2","#C7D36F"];
+const DEFAULT = {
+  materias: [
+    {id:"m1", nombre:"Cultura Ambiental",            nrc:"34474", color:"#3CCF7A"},
+    {id:"m2", nombre:"Métodos Numéricos",            nrc:"36145", color:"#4FA3FF"},
+    {id:"m3", nombre:"Modelos Discretos para Ing. de Software", nrc:"36856", color:"#2ED3C6"},
+    {id:"m4", nombre:"Estructura de Datos",          nrc:"36866", color:"#B88CFF"},
+  ],
+  tareas: [],
+  ajustes: { intervalo:4, inicio:"08:00", silencio:false, silFrom:"23:00", silTo:"07:00", alertas:[1440,180,60] },
+  ultimoChequeo: 0,
+};
+let S;
+function load(){
+  try { S = JSON.parse(localStorage.getItem(KEY)) || null; } catch(e){ S = null; }
+  if(!S) S = JSON.parse(JSON.stringify(DEFAULT));
+  S.ajustes = Object.assign({}, DEFAULT.ajustes, S.ajustes||{});
+  S.materias = S.materias || []; S.tareas = S.tareas || [];
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
+  mirrorToSW();
+}
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+const mat = id => S.materias.find(m => m.id === id) || {nombre:"(materia eliminada)", nrc:"", color:"#666"};
+
+/* ============================================================
+   Fechas
+   ============================================================ */
+const pad = n => String(n).padStart(2,"0");
+const toLocalStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const parseLocal = s => { const [a,b] = s.split("T"); const [y,m,d] = a.split("-").map(Number); const [h,mi] = (b||"23:59").split(":").map(Number); return new Date(y,m-1,d,h,mi); };
+const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const DIAS = ["dom","lun","mar","mié","jue","vie","sáb"];
+const DIAS_L = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const MESES_L = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+function hora(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function diaTxt(d, now = new Date()){
+  const diff = Math.round((dayStart(d) - dayStart(now)) / 864e5);
+  if(diff === 0) return "hoy";
+  if(diff === 1) return "mañana";
+  if(diff === -1) return "ayer";
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
+}
+function restante(d, now = new Date()){
+  const ms = d - now, min = Math.round(ms/6e4);
+  if(ms < 0){ const a = -min; if(a < 60) return `hace ${a} min`; if(a < 1440) return `hace ${Math.round(a/60)} h`; return `hace ${Math.round(a/1440)} d`; }
+  if(min < 60) return `${min} min`;
+  if(min < 1440) return `${Math.floor(min/60)} h`;
+  const days = Math.round(min/1440); return `${days} ${days===1?"día":"días"}`;
+}
+function urg(d, now = new Date()){
+  const h = (d - now)/36e5;
+  if(h < 24) return "hot"; if(h < 72) return "warm"; if(h < 168) return "ok"; return "";
+}
+
+/* ============================================================
+   Utilidades UI
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let toastT;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"), 2300); }
+
+/* ---------- Navegación ---------- */
+let view = "timeline";
+function go(v){
+  view = v;
+  document.querySelectorAll(".view").forEach(el => el.classList.toggle("on", el.id === "v-"+v));
+  document.querySelectorAll("nav.bottom button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  $("#fab").style.display = v === "avisos" ? "none" : "grid";
+  if(location.hash !== "#"+v) history.replaceState(null, "", "#"+v);
+  render();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("nav.bottom button").forEach(b => b.onclick = () => go(b.dataset.v));
+
+/* ============================================================
+   Línea de tiempo
+   ============================================================ */
+let filtro = "todas";
+function pendientes(){ return S.tareas.filter(t => !t.hecha).sort((a,b) => parseLocal(a.fecha) - parseLocal(b.fecha)); }
+
+function renderTimeline(){
+  const now = new Date();
+  $("#todayLbl").textContent = `${DIAS_L[now.getDay()][0].toUpperCase()+DIAS_L[now.getDay()].slice(1)} ${now.getDate()} de ${MESES_L[now.getMonth()]}`;
+
+  // filtros por materia
+  const f = $("#tlFilters");
+  const chips = [{id:"todas", n:"Todas"}, ...S.materias.map(m => ({id:m.id, n:m.nombre.split(" ")[0] + (m.nombre.split(" ").length>1 ? " " + m.nombre.split(" ")[1] : "")})), {id:"hechas", n:"✓ Completadas"}];
+  f.innerHTML = chips.map(c => `<button class="chip ${filtro===c.id?"on":""}" data-f="${c.id}">${esc(c.n)}</button>`).join("");
+  f.querySelectorAll("button").forEach(b => b.onclick = () => { filtro = b.dataset.f; renderTimeline(); });
+
+  // próxima entrega destacada
+  const pend = pendientes();
+  const next = pend.find(t => parseLocal(t.fecha) >= now);
+  $("#nextCard").innerHTML = next && filtro === "todas" ? (() => {
+    const d = parseLocal(next.fecha), m = mat(next.materiaId);
+    return `<div class="nextcard"><div class="k">Lo próximo · en ${restante(d, now)}</div>
+      <div class="t">${esc(m.nombre)}: ${esc(next.titulo)}</div>
+      <div class="m">Se entrega ${diaTxt(d, now)} hasta las ${hora(d)}</div></div>`;
+  })() : "";
+
+  // lista
+  let list;
+  if(filtro === "hechas") list = S.tareas.filter(t => t.hecha).sort((a,b) => parseLocal(b.fecha) - parseLocal(a.fecha));
+  else list = pend.filter(t => filtro === "todas" || t.materiaId === filtro);
+
+  if(!list.length){
+    $("#tlList").innerHTML = `<div class="empty"><div class="ill"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2" stroke-linecap="round"><path d="M5 12l4 4 10-10"/></svg></div>
+      <p>${filtro==="hechas" ? "Aún no completas nada" : "No hay deberes pendientes"}</p>
+      <small>${filtro==="hechas" ? "" : "Toca <b style='color:var(--accent)'>+</b> o una materia para agendar uno"}</small></div>`;
+    return;
+  }
+
+  const groups = [];
+  const push = (key, label, cls, t) => { let g = groups.find(x => x.key === key); if(!g){ g = {key,label,cls,items:[]}; groups.push(g); } g.items.push(t); };
+  const today = dayStart(now);
+  for(const t of list){
+    const d = parseLocal(t.fecha);
+    if(filtro === "hechas"){ push("h","Completadas","",t); continue; }
+    if(d < now) push("v","Vencidas","overdue",t);
+    else if(dayStart(d) - today === 0) push("0","Hoy","",t);
+    else if(dayStart(d) - today === 864e5) push("1","Mañana","",t);
+    else if(d < addDays(today, 7)) push("w","Esta semana","",t);
+    else if(d < addDays(today, 14)) push("n","Próxima semana","",t);
+    else push("l","Más adelante","",t);
+  }
+  $("#tlList").innerHTML = groups.map(g => `
+    <div class="group ${g.cls}"><h2>${g.label}<span class="n">${g.items.length}</span></h2><div class="tl">
+      ${g.items.map(t => {
+        const d = parseLocal(t.fecha), m = mat(t.materiaId), u = t.hecha ? "" : urg(d, now);
+        return `<button class="item ${t.hecha?"done":""}" style="--c:${m.color}" data-t="${t.id}">
+          <div class="body"><div class="mat">${esc(m.nombre)}${m.nrc ? " · " + esc(m.nrc) : ""}</div>
+          <div class="what">${esc(t.titulo)}</div>
+          <div class="when">Se entrega <b>${diaTxt(d, now)}</b> hasta las <b>${hora(d)}</b></div></div>
+          ${t.hecha ? `<span class="badge">Hecha</span>` : `<span class="badge ${u}">${d < now ? "Vencida" : "en " + restante(d, now)}</span>`}
+        </button>`;
+      }).join("")}
+    </div></div>`).join("");
+  $("#tlList").querySelectorAll(".item").forEach(b => b.onclick = () => taskMenu(b.dataset.t));
+}
+
+/* ============================================================
+   Materias
+   ============================================================ */
+function renderMaterias(){
+  const pend = pendientes();
+  $("#matGrid").innerHTML = S.materias.map(m => {
+    const n = pend.filter(t => t.materiaId === m.id).length;
+    const ini = m.nombre.split(/\s+/).filter(w => w.length > 2).slice(0,2).map(w => w[0]).join("").toUpperCase();
+    return `<button class="card" style="--c:${m.color}" data-m="${m.id}">
+      ${n ? `<span class="cnt">${n}</span>` : ""}
+      <span class="sw">${esc(ini)}</span>
+      <div><div class="name">${esc(m.nombre)}</div><div class="nrc">NRC ${esc(m.nrc||"—")}</div></div>
+      <span class="edit" data-edit="${m.id}" aria-label="Editar materia"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></span>
+    </button>`;
+  }).join("") + `<button class="card add" id="addMat"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar materia</button>`;
+  $("#matGrid").querySelectorAll(".card[data-m]").forEach(c => c.onclick = e => {
+    if(e.target.closest("[data-edit]")) return matForm(c.dataset.m);
+    taskForm({materiaId: c.dataset.m});
+  });
+  $("#addMat").onclick = () => matForm(null);
+}
+
+/* ============================================================
+   Hoja inferior
+   ============================================================ */
+function openSheet(html){ $("#sheetBody").innerHTML = html; $("#scrim").classList.add("on"); $("#sheet").classList.add("on"); $("#sheet").scrollTop = 0; }
+function closeSheet(){ $("#scrim").classList.remove("on"); $("#sheet").classList.remove("on"); }
+$("#scrim").onclick = closeSheet;
+
+/* ---------- Elegir materia (desde +) ---------- */
+function pickMateria(){
+  if(!S.materias.length){ go("materias"); return toast("Primero agrega una materia"); }
+  openSheet(`<div class="q" style="margin-top:4px">¿De qué materia?</div>
+    <div class="pick">${S.materias.map(m => `<button data-m="${m.id}" style="--c:${m.color}"><span class="sw"></span><div><div class="n">${esc(m.nombre)}</div><div class="r">NRC ${esc(m.nrc||"—")}</div></div></button>`).join("")}</div>`);
+  $("#sheetBody").querySelectorAll("[data-m]").forEach(b => b.onclick = () => taskForm({materiaId: b.dataset.m}));
+}
+$("#fab").onclick = pickMateria;
+
+/* ---------- Formulario guiado de tarea (2 pasos) ---------- */
+const TIPOS = ["Taller","Deber","Examen","Proyecto","Lección","Cuestionario","Foro","Exposición","Informe","Lectura"];
+function taskForm(init){
+  const editing = !!init.id;
+  const st = {
+    id: init.id || null, materiaId: init.materiaId, titulo: init.titulo || "",
+    fecha: init.fecha ? init.fecha.split("T")[0] : "", hora: init.fecha ? init.fecha.split("T")[1] : "23:59",
+    paso: 1,
+  };
+  const m = mat(st.materiaId);
+  const head = `<div class="head" style="--c:${m.color}"><span class="sw"></span><div><div class="ttl">${esc(m.nombre)}</div><div class="nrc">NRC ${esc(m.nrc||"—")}</div></div></div>`;
+
+  function paso1(){
+    openSheet(`${head}<div class="stepper"><i class="on"></i><i></i></div>
+      <div class="q">¿Qué hay que hacer?</div><p class="qsub">Elige uno o escríbelo corto.</p>
+      <div class="opts">${TIPOS.map(t => `<button class="chip ${st.titulo===t?"on":""}" data-tipo="${t}">${t}</button>`).join("")}</div>
+      <input type="text" class="big" id="fTit" placeholder="Ej.: Taller 3 — Interpolación" maxlength="70" value="${esc(st.titulo)}" autocomplete="off" enterkeyhint="next">
+      <div class="actions"><button class="btn" id="fCancel">Cancelar</button><button class="btn primary" id="fNext">Siguiente</button></div>`);
+    const inp = $("#fTit");
+    const sync = () => { $("#fNext").disabled = !inp.value.trim(); document.querySelectorAll("[data-tipo]").forEach(c => c.classList.toggle("on", c.dataset.tipo === inp.value.trim())); };
+    document.querySelectorAll("[data-tipo]").forEach(c => c.onclick = () => {
+      const cur = inp.value.trim();
+      // si ya había un tipo escrito, lo reemplaza; si el usuario escribió algo propio, antepone el tipo
+      inp.value = (!cur || TIPOS.includes(cur)) ? c.dataset.tipo : (TIPOS.some(t => cur.startsWith(t)) ? c.dataset.tipo + cur.replace(new RegExp("^(" + TIPOS.join("|") + ")"), "") : c.dataset.tipo + " — " + cur);
+      sync(); inp.focus();
+    });
+    inp.oninput = sync; sync();
+    inp.onkeydown = e => { if(e.key === "Enter" && inp.value.trim()){ e.preventDefault(); $("#fNext").click(); } };
+    $("#fCancel").onclick = closeSheet;
+    $("#fNext").onclick = () => { st.titulo = inp.value.trim(); if(st.titulo){ st.paso = 2; paso2(); } };
+  }
+
+  function paso2(){
+    const now = new Date(), today = dayStart(now);
+    const quick = [
+      ["Hoy", today], ["Mañana", addDays(today,1)], ["Pasado mañana", addDays(today,2)],
+      ...[3,4,5,6].map(n => { const d = addDays(today,n); return [`${DIAS[d.getDay()][0].toUpperCase()+DIAS[d.getDay()].slice(1)} ${d.getDate()}`, d]; }),
+      ["En 1 semana", addDays(today,7)],
+    ].map(([l,d]) => [l, `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`]);
+    const horas = [["08:00","8 am"],["12:00","12 pm"],["18:00","6 pm"],["23:59","23:59"]];
+    openSheet(`${head}<div class="stepper"><i class="on"></i><i class="on"></i></div>
+      <div class="q">¿Para cuándo?</div><p class="qsub">Fecha y hora límite de entrega.</p>
+      <div class="opts" id="qDays">${quick.map(([l,v]) => `<button class="chip ${st.fecha===v?"on":""}" data-d="${v}">${l}</button>`).join("")}</div>
+      <label class="fld">Otra fecha</label>
+      <input type="date" class="big" id="fDate" value="${st.fecha}" min="${quick[0][1]}">
+      <label class="fld">Hasta las</label>
+      <div class="opts" id="qHrs" style="margin-top:0">${horas.map(([v,l]) => `<button class="chip ${st.hora===v?"on":""}" data-h="${v}">${l}</button>`).join("")}</div>
+      <input type="time" class="big" id="fTime" value="${st.hora}">
+      <div class="summary" id="fSum"></div>
+      <div class="actions"><button class="btn" id="fBack">Atrás</button><button class="btn primary" id="fSave">${editing ? "Guardar cambios" : "Agendar"}</button></div>`);
+    const upd = () => {
+      document.querySelectorAll("[data-d]").forEach(c => c.classList.toggle("on", c.dataset.d === st.fecha));
+      document.querySelectorAll("[data-h]").forEach(c => c.classList.toggle("on", c.dataset.h === st.hora));
+      $("#fDate").value = st.fecha; $("#fTime").value = st.hora;
+      const ok = !!(st.fecha && st.hora);
+      $("#fSave").disabled = !ok;
+      if(ok){ const d = parseLocal(st.fecha + "T" + st.hora);
+        $("#fSum").innerHTML = `<b>${esc(m.nombre)}</b>, hay <b>${esc(st.titulo)}</b> y se entrega <b>${diaTxt(d)}</b> hasta las <b>${hora(d)}</b>.`;
+        $("#fSum").style.display = "block";
+      } else $("#fSum").style.display = "none";
+    };
+    document.querySelectorAll("[data-d]").forEach(c => c.onclick = () => { st.fecha = c.dataset.d; upd(); });
+    document.querySelectorAll("[data-h]").forEach(c => c.onclick = () => { st.hora = c.dataset.h; upd(); });
+    $("#fDate").onchange = e => { st.fecha = e.target.value; upd(); };
+    $("#fTime").onchange = e => { st.hora = e.target.value || "23:59"; upd(); };
+    $("#fBack").onclick = paso1;
+    $("#fSave").onclick = () => {
+      const fecha = st.fecha + "T" + st.hora;
+      if(editing){ const t = S.tareas.find(x => x.id === st.id); Object.assign(t, {titulo: st.titulo, fecha, avisadas: []}); }
+      else S.tareas.push({id: uid(), materiaId: st.materiaId, titulo: st.titulo, fecha, hecha: false, creada: Date.now(), avisadas: []});
+      save(); closeSheet();
+      if(view !== "timeline") go("timeline"); else render();
+      toast(editing ? "Cambios guardados" : "Agendado ✓");
+      if(!editing) maybeAskNotif();
+    };
+    upd();
+  }
+  paso1();
+}
+
+/* ---------- Menú de una tarea ---------- */
+function taskMenu(id){
+  const t = S.tareas.find(x => x.id === id); if(!t) return;
+  const m = mat(t.materiaId), d = parseLocal(t.fecha);
+  openSheet(`<div class="head" style="--c:${m.color}"><span class="sw"></span><div><div class="ttl">${esc(t.titulo)}</div><div class="nrc">${esc(m.nombre)} · ${diaTxt(d)} ${hora(d)}</div></div></div>
+    <div class="menu">
+      <button class="btn primary" id="mDone">${t.hecha ? "Marcar como pendiente" : "✓  Marcar como hecha"}</button>
+      <button class="btn" id="mEdit">Editar</button>
+      <a class="btn" id="mCal" href="${gcalUrl(t)}" target="_blank" rel="noopener" style="text-decoration:none">Agregar a Google Calendar</a>
+      <button class="btn danger" id="mDel">Eliminar</button>
+    </div>`);
+  $("#mDone").onclick = () => { t.hecha = !t.hecha; save(); closeSheet(); render(); toast(t.hecha ? "¡Bien! Tarea completada" : "Marcada como pendiente"); };
+  $("#mEdit").onclick = () => taskForm({id: t.id, materiaId: t.materiaId, titulo: t.titulo, fecha: t.fecha});
+  $("#mDel").onclick = () => {
+    $("#mDel").textContent = "Toca otra vez para eliminar";
+    $("#mDel").onclick = () => { S.tareas = S.tareas.filter(x => x.id !== id); save(); closeSheet(); render(); toast("Eliminada"); };
+  };
+}
+
+/* ---------- Formulario de materia ---------- */
+function matForm(id){
+  const m = id ? S.materias.find(x => x.id === id) : {nombre:"", nrc:"", color: COLORS[S.materias.length % COLORS.length]};
+  let color = m.color;
+  openSheet(`<div class="q" style="margin-top:4px">${id ? "Editar materia" : "Nueva materia"}</div>
+    <label class="fld">Nombre</label><input type="text" class="big" id="mNom" value="${esc(m.nombre)}" placeholder="Ej.: Métodos Numéricos" maxlength="60" autocomplete="off">
+    <label class="fld">NRC</label><input type="text" class="big" id="mNrc" value="${esc(m.nrc)}" placeholder="Ej.: 36145" inputmode="numeric" maxlength="12" autocomplete="off">
+    <label class="fld">Color</label><div class="colors">${COLORS.map(c => `<button style="--c:${c}" data-c="${c}" class="${c===color?"on":""}"></button>`).join("")}</div>
+    <div class="actions">${id ? `<button class="btn" id="mRm" style="color:var(--red)">Eliminar</button>` : `<button class="btn" id="mCancel">Cancelar</button>`}<button class="btn primary" id="mOk">Guardar</button></div>`);
+  document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { color = b.dataset.c; document.querySelectorAll("[data-c]").forEach(x => x.classList.toggle("on", x === b)); });
+  $("#mOk").onclick = () => {
+    const nombre = $("#mNom").value.trim(); if(!nombre) return $("#mNom").focus();
+    if(id) Object.assign(m, {nombre, nrc: $("#mNrc").value.trim(), color});
+    else S.materias.push({id: uid(), nombre, nrc: $("#mNrc").value.trim(), color});
+    save(); closeSheet(); render(); toast("Materia guardada");
+  };
+  if($("#mCancel")) $("#mCancel").onclick = closeSheet;
+  if($("#mRm")) $("#mRm").onclick = () => {
+    const n = S.tareas.filter(t => t.materiaId === id).length;
+    $("#mRm").textContent = n ? `Borrar con ${n} tarea${n>1?"s":""}` : "¿Seguro?";
+    $("#mRm").onclick = () => { S.materias = S.materias.filter(x => x.id !== id); S.tareas = S.tareas.filter(t => t.materiaId !== id); save(); closeSheet(); render(); toast("Materia eliminada"); };
+  };
+}
+
+/* ============================================================
+   NOTIFICACIONES
+   ------------------------------------------------------------
+   Dos tipos de aviso:
+   1) Recordatorio general cada N horas (por defecto cada 4 h = 6 al día)
+      → "Tienes 3 deberes. Lo próximo: Métodos Numéricos – Taller, mañana 23:59"
+   2) Alertas por entrega: 1 día, 3 horas y 1 hora antes de cada tarea.
+   La app revisa cada 30 s (y al volver a abrirse) qué avisos ya tocaban
+   desde la última revisión y los dispara una sola vez.
+   Si estuvo cerrada mucho tiempo, junta los atrasados en un solo aviso.
+   ============================================================ */
+const A = () => S.ajustes;
+function minsOf(hhmm){ const [h,m] = hhmm.split(":").map(Number); return h*60+m; }
+function enSilencio(d){
+  if(!A().silencio) return false;
+  const x = d.getHours()*60 + d.getMinutes(), a = minsOf(A().silFrom), b = minsOf(A().silTo);
+  return a <= b ? (x >= a && x < b) : (x >= a || x < b);
+}
+function horasGenerales(){
+  const iv = A().intervalo; if(!iv) return [];
+  const start = minsOf(A().inicio), out = [];
+  for(let k = 0; k < 24/iv; k++) out.push((start + k*iv*60) % 1440);
+  return out.sort((a,b) => a-b);
+}
+// Avisos generales que caen en (desde, hasta]
+function generalesEntre(desde, hasta){
+  const res = [], hs = horasGenerales(); if(!hs.length) return res;
+  for(let d = dayStart(new Date(desde)); d <= hasta; d = addDays(d,1)){
+    for(const m of hs){ const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(m/60), m%60); if(t > desde && t <= hasta && !enSilencio(t)) res.push(t); }
+  }
+  return res;
+}
+function resumenGeneral(now = new Date()){
+  const pend = pendientes();
+  const venc = pend.filter(t => parseLocal(t.fecha) < now);
+  const prox = pend.filter(t => parseLocal(t.fecha) >= now);
+  if(!pend.length) return {title:"Sin deberes pendientes 🎉", body:"No tienes nada agendado. Si te dejaron algo nuevo, agrégalo ahora."};
+  const n = prox[0];
+  let body = "";
+  if(n){ const d = parseLocal(n.fecha); body = `Lo próximo: ${mat(n.materiaId).nombre} — ${n.titulo}, ${diaTxt(d, now)} hasta las ${hora(d)}.`; }
+  if(prox[1]){ const d = parseLocal(prox[1].fecha); body += `\nLuego: ${mat(prox[1].materiaId).nombre} — ${prox[1].titulo}, ${diaTxt(d, now)} ${hora(d)}.`; }
+  if(venc.length) body += `\n⚠ ${venc.length} vencida${venc.length>1?"s":""} sin marcar.`;
+  return {title:`📚 Tienes ${pend.length} deber${pend.length>1?"es":""} pendiente${pend.length>1?"s":""}`, body};
+}
+function etiquetaOff(off){ return off >= 1440 ? "mañana" : off >= 180 ? "en 3 horas" : "en 1 hora"; }
+
+async function notify(title, body, tag){
+  if(!("Notification" in window) || Notification.permission !== "granted") return false;
+  const opts = {body, tag: tag || "misdeberes", icon:"icon-192.png", badge:"icon-badge.png", renotify:true, data:{url: "./#timeline"}, vibrate:[120,60,120]};
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if(reg){ await reg.showNotification(title, opts); return true; }
+  } catch(e){}
+  try { new Notification(title, opts); return true; } catch(e){ return false; }
+}
+
+function revisarAvisos(){
+  const now = new Date();
+  const last = S.ultimoChequeo ? new Date(S.ultimoChequeo) : new Date(now - 6e4);
+  if(!("Notification" in window) || Notification.permission !== "granted"){ S.ultimoChequeo = now.getTime(); save(); return; }
+  let cambios = false;
+
+  // 1) Alertas por entrega
+  const atrasadas = [];
+  for(const t of pendientes()){
+    const due = parseLocal(t.fecha);
+    t.avisadas = t.avisadas || [];
+    for(const off of A().alertas){
+      if(t.avisadas.includes(off)) continue;
+      const at = new Date(due - off*6e4);
+      if(at <= now && due > now){
+        t.avisadas.push(off); cambios = true;
+        if(now - at < 2*36e5) atrasadas.push({t, off, due});   // solo si no es demasiado tarde
+      }
+    }
+  }
+  // agrupa por tarea (si hay varias, solo la más urgente)
+  const porTarea = {};
+  for(const a of atrasadas) if(!porTarea[a.t.id] || a.off < porTarea[a.t.id].off) porTarea[a.t.id] = a;
+  for(const a of Object.values(porTarea)){
+    if(enSilencio(now) && a.off !== 60) continue;
+    const m = mat(a.t.materiaId);
+    notify(`⏰ ${m.nombre}: ${a.t.titulo}`, `Se entrega ${diaTxt(a.due, now)} hasta las ${hora(a.due)} (${restante(a.due, now)} restantes).`, "due-" + a.t.id);
+  }
+
+  // 2) Recordatorio general
+  const gen = generalesEntre(last, now);
+  if(gen.length && (now - gen[gen.length-1]) < 3*36e5){
+    const r = resumenGeneral(now); notify(r.title, r.body, "general");
+  }
+  S.ultimoChequeo = now.getTime();
+  save();
+  if(cambios) render();
+}
+
+/* ---------- Service worker + espejo de datos para avisos en segundo plano ---------- */
+let swReg = null;
+async function initSW(){
+  if(!("serviceWorker" in navigator)) return;
+  try {
+    swReg = await navigator.serviceWorker.register("sw.js");
+    // Sincronización periódica (Chrome Android con la app instalada). Es un extra: el navegador decide la frecuencia.
+    if("periodicSync" in swReg){
+      try { const p = await navigator.permissions.query({name:"periodic-background-sync"}); if(p.state === "granted") await swReg.periodicSync.register("deberes", {minInterval: 3*36e5}); } catch(e){}
+    }
+    mirrorToSW();
+  } catch(e){}
+}
+function mirrorToSW(){
+  if(!("caches" in window)) return;
+  const r = resumenGeneral();
+  const payload = {resumen: r, tareas: pendientes().map(t => ({id:t.id, titulo:t.titulo, fecha:t.fecha, materia: mat(t.materiaId).nombre, avisadas:t.avisadas||[]})), ajustes: S.ajustes, ultimoChequeo: S.ultimoChequeo, generales: horasGenerales()};
+  caches.open("misdeberes-state").then(c => c.put("state.json", new Response(JSON.stringify(payload), {headers:{"Content-Type":"application/json"}}))).catch(()=>{});
+}
+
+/* ---------- Permiso ---------- */
+function notifState(){
+  if(!("Notification" in window)) return "unsupported";
+  return Notification.permission; // default | granted | denied
+}
+async function pedirPermiso(){
+  if(notifState() === "unsupported"){ toast("Este navegador no permite notificaciones aquí"); return; }
+  try { const p = await Notification.requestPermission(); render(); if(p === "granted"){ toast("Notificaciones activadas"); S.ultimoChequeo = Date.now(); save(); notify("¡Listo! 🔔", "Te avisaré cada " + A().intervalo + " horas y antes de cada entrega.", "hola"); } else toast("No se dio permiso"); }
+  catch(e){ toast("No se pudo pedir permiso"); }
+}
+function maybeAskNotif(){ if(notifState() === "default") setTimeout(() => renderBanner(true), 400); }
+function renderBanner(force){
+  const st = notifState(), b = $("#notifBanner");
+  if(st === "default" && (force || S.tareas.length)){
+    b.innerHTML = `<div class="banner"><span>🔔 Activa las notificaciones para que te recuerde tus deberes.</span><button id="bAct">Activar</button></div>`;
+    $("#bAct").onclick = pedirPermiso;
+  } else if(st === "denied" && S.tareas.length){
+    b.innerHTML = `<div class="banner"><span>Las notificaciones están bloqueadas. Actívalas en los ajustes del navegador para este sitio, o usa la exportación al calendario en <b>Avisos</b>.</span></div>`;
+  } else if(st === "unsupported" && S.tareas.length){
+    b.innerHTML = `<div class="banner"><span>Aquí no puedo mostrar notificaciones. Instala la app o usa <b>Avisos → calendario</b>.</span><button id="bGo">Ver</button></div>`;
+    $("#bGo").onclick = () => go("avisos");
+  } else b.innerHTML = "";
+}
+
+/* ============================================================
+   Calendario (.ics y Google Calendar)
+   ============================================================ */
+const icsDate = d => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+const icsEsc = s => String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n");
+function gcalUrl(t){
+  const d = parseLocal(t.fecha), m = mat(t.materiaId), s = new Date(d - 30*6e4);
+  const p = new URLSearchParams({action:"TEMPLATE", text:`${m.nombre}: ${t.titulo}`, dates:`${icsDate(s)}/${icsDate(d)}`, details:`Entrega de ${t.titulo} (${m.nombre}${m.nrc ? ", NRC " + m.nrc : ""}) hasta las ${hora(d)}. — Mis Deberes`});
+  return "https://calendar.google.com/calendar/render?" + p.toString();
+}
+function buildICS(incluirGeneral){
+  const L = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//MisDeberes//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:Mis Deberes"];
+  const stamp = icsDate(new Date());
+  const now = new Date();
+  for(const t of pendientes()){
+    const d = parseLocal(t.fecha); if(d < now) continue;
+    const m = mat(t.materiaId);
+    L.push("BEGIN:VEVENT", `UID:${t.id}@misdeberes`, `DTSTAMP:${stamp}`, `DTSTART:${icsDate(new Date(d - 30*6e4))}`, `DTEND:${icsDate(d)}`,
+      `SUMMARY:${icsEsc(`📚 ${m.nombre}: ${t.titulo}`)}`, `DESCRIPTION:${icsEsc(`Se entrega hasta las ${hora(d)}.${m.nrc ? " NRC " + m.nrc : ""}`)}`);
+    // el evento empieza 30 min antes de la entrega; las alarmas se calculan respecto a la entrega
+    for(const off of [...A().alertas, 30]) L.push("BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:${icsEsc(`${m.nombre}: ${t.titulo}`)}`, off === 30 ? "TRIGGER:PT0M" : `TRIGGER:-PT${off-30}M`,"END:VALARM");
+    L.push("END:VEVENT");
+  }
+  if(incluirGeneral){
+    const today = dayStart(now);
+    horasGenerales().forEach((mm, i) => {
+      const s = new Date(today.getFullYear(), today.getMonth(), today.getDate(), Math.floor(mm/60), mm%60);
+      if(enSilencio(s)) return;
+      L.push("BEGIN:VEVENT", `UID:general-${i}-${mm}@misdeberes`, `DTSTAMP:${stamp}`, `DTSTART:${icsDate(s)}`, `DTEND:${icsDate(new Date(+s + 5*6e4))}`, "RRULE:FREQ=DAILY",
+        "SUMMARY:📚 Revisa tus deberes (Mis Deberes)", "DESCRIPTION:Abre Mis Deberes y mira tu línea de tiempo.", "TRANSP:TRANSPARENT",
+        "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:Revisa tus deberes","TRIGGER:PT0M","END:VALARM","END:VEVENT");
+    });
+  }
+  L.push("END:VCALENDAR");
+  // plegado de líneas largas (RFC 5545)
+  return L.map(line => { let out = "", s = line; while(s.length > 73){ out += s.slice(0,73) + "\r\n "; s = s.slice(73); } return out + s; }).join("\r\n") + "\r\n";
+}
+function descargar(nombre, contenido, tipo){
+  const blob = new Blob([contenido], {type: tipo});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+
+/* ============================================================
+   Ajustes (render + eventos)
+   ============================================================ */
+function renderAvisos(){
+  const st = notifState();
+  const map = {granted:["g","Activadas en este dispositivo"], denied:["r","Bloqueadas — actívalas en los ajustes del navegador"], default:["y","Aún no activadas"], unsupported:["r","Este navegador no las permite aquí"]};
+  $("#nDot").className = "dot " + map[st][0]; $("#nTxt").textContent = map[st][1];
+  $("#nEnable").hidden = st !== "default";
+  $("#nTest").disabled = st !== "granted";
+
+  const ivs = [[3,"Cada 3 h · 8 al día"],[4,"Cada 4 h · 6 al día"],[6,"Cada 6 h · 4 al día"],[0,"Desactivado"]];
+  $("#ivSeg").innerHTML = ivs.map(([v,l]) => `<button class="chip ${A().intervalo===v?"on":""}" data-iv="${v}">${l}</button>`).join("");
+  $("#ivSeg").querySelectorAll("[data-iv]").forEach(b => b.onclick = () => { A().intervalo = +b.dataset.iv; save(); renderAvisos(); });
+  $("#ivStart").value = A().inicio;
+  const today = dayStart(new Date());
+  const ini = minsOf(A().inicio);
+  $("#ivTimes").innerHTML = horasGenerales().sort((a,b) => ((a-ini+1440)%1440) - ((b-ini+1440)%1440)).map(m => { const d = new Date(+today + m*6e4); return `<span class="${enSilencio(d)?"q":""}">${hora(d)}</span>`; }).join("") || `<span class="q">Sin recordatorio general</span>`;
+  $("#qOn").checked = A().silencio; $("#qFrom").value = A().silFrom; $("#qTo").value = A().silTo;
+  $("#qRow").style.display = A().silencio ? "flex" : "none";
+  document.querySelectorAll("[data-off]").forEach(c => c.checked = A().alertas.includes(+c.dataset.off));
+}
+$("#ivStart").onchange = e => { A().inicio = e.target.value || "08:00"; save(); renderAvisos(); };
+$("#qOn").onchange = e => { A().silencio = e.target.checked; save(); renderAvisos(); };
+$("#qFrom").onchange = e => { A().silFrom = e.target.value || "23:00"; save(); renderAvisos(); };
+$("#qTo").onchange = e => { A().silTo = e.target.value || "07:00"; save(); renderAvisos(); };
+document.querySelectorAll("[data-off]").forEach(c => c.onchange = () => { const o = +c.dataset.off; A().alertas = c.checked ? [...new Set([...A().alertas, o])] : A().alertas.filter(x => x !== o); save(); });
+$("#nEnable").onclick = pedirPermiso;
+$("#nTest").onclick = () => { const r = resumenGeneral(); notify(r.title, r.body, "prueba").then(ok => toast(ok ? "Enviada" : "No se pudo enviar")); };
+$("#icsBtn").onclick = () => {
+  const n = pendientes().filter(t => parseLocal(t.fecha) >= new Date()).length;
+  if(!n && !$("#icsChk").checked) return toast("No hay deberes por exportar");
+  descargar("mis-deberes.ics", buildICS($("#icsChk").checked), "text/calendar");
+  toast("Ábrelo con tu app de Calendario");
+};
+$("#expBtn").onclick = () => { descargar(`mis-deberes-respaldo-${toLocalStr(new Date()).slice(0,10)}.json`, JSON.stringify(S, null, 2), "application/json"); toast("Respaldo descargado"); };
+$("#impBtn").onclick = () => $("#impFile").click();
+$("#impFile").onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try { const d = JSON.parse(await f.text()); if(!Array.isArray(d.materias) || !Array.isArray(d.tareas)) throw 0; S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), d); S.ajustes = Object.assign({}, DEFAULT.ajustes, d.ajustes || {}); save(); render(); toast("Respaldo importado"); }
+  catch(err){ toast("Ese archivo no es un respaldo válido"); }
+  e.target.value = "";
+};
+
+/* ---------- Instalación PWA ---------- */
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; $("#installBtn").hidden = false; });
+$("#installBtn").onclick = async () => { if(!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $("#installBtn").hidden = true; };
+
+/* ============================================================
+   Arranque
+   ============================================================ */
+function render(){
+  if(view === "timeline") renderTimeline();
+  if(view === "materias") renderMaterias();
+  if(view === "avisos") renderAvisos();
+  renderBanner(false);
+}
+load();
+const h = location.hash.slice(1);
+const qs = new URLSearchParams(location.search);
+go(["timeline","materias","avisos"].includes(h) ? h : "timeline");
+if(qs.get("nueva") === "1" || h === "nueva") setTimeout(pickMateria, 150);
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if(["timeline","materias","avisos"].includes(v) && v !== view) go(v); });
+initSW();
+revisarAvisos();
+setInterval(revisarAvisos, 30e3);
+setInterval(() => { if(view === "timeline" && !$("#sheet").classList.contains("on")) renderTimeline(); }, 60e3);
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ revisarAvisos(); render(); } });
+})();
+</script>
+</body>
+</html>

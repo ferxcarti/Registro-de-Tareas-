@@ -1,0 +1,21 @@
+{
+  "name": "Mis Deberes",
+  "short_name": "Deberes",
+  "description": "Tus deberes por materia, en una línea de tiempo, con recordatorios.",
+  "lang": "es",
+  "start_url": "./index.html#timeline",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nueva tarea", "short_name": "Nueva", "url": "./index.html?nueva=1#timeline", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Materias", "url": "./index.html#materias", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}
